@@ -1,6 +1,6 @@
 FROM openjdk:18-jdk-slim
 
-LABEL maintainer "Amr Salem"
+LABEL maintainer="Amr Salem"
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -10,15 +10,15 @@ WORKDIR /
 #=============================
 SHELL ["/bin/bash", "-c"]   
 
-RUN apt update && apt install -y curl sudo wget unzip bzip2 libdrm-dev libxkbcommon-dev libgbm-dev libasound-dev libnss3 libxcursor1 libpulse-dev libxshmfence-dev xauth xvfb x11vnc fluxbox wmctrl libdbus-glib-1-2
+RUN apt update && apt install -y curl sudo wget unzip bzip2 libdrm-dev libxkbcommon-dev libgbm-dev libasound-dev libnss3 libxcursor1 libpulse-dev libxshmfence-dev xauth xvfb x11vnc fluxbox wmctrl libdbus-glib-1-2 supervisor
 
 #==============================
 # Android SDK ARGS
 #==============================
 ARG ARCH="x86_64" 
 ARG TARGET="google_apis_playstore"  
-ARG API_LEVEL="34" 
-ARG BUILD_TOOLS="34.0.0"
+ARG API_LEVEL="35"
+ARG BUILD_TOOLS="35.0.0"
 ARG ANDROID_ARCH=${ANDROID_ARCH_DEFAULT}
 ARG ANDROID_API_LEVEL="android-${API_LEVEL}"
 ARG ANDROID_APIS="${TARGET};${ARCH}"
@@ -68,7 +68,7 @@ RUN curl -sL https://deb.nodesource.com/setup_20.x | bash && \
     appium driver install uiautomator2 && \
     exit 0 && \
     npm cache clean && \
-    apt-get remove --purge -y npm && \  
+    apt-get remove --purge -y npm && \
     apt-get autoremove --purge -y && \
     apt-get clean && \
     rm -Rf /tmp/* && rm -Rf /var/lib/apt/lists/*
@@ -77,10 +77,17 @@ RUN curl -sL https://deb.nodesource.com/setup_20.x | bash && \
 #===================
 # Alias
 #===================
-ENV EMU=./start_emu.sh
-ENV EMU_HEADLESS=./start_emu_headless.sh
-ENV VNC=./start_vnc.sh
-ENV APPIUM=./start_appium.sh
+ENV EMU=./start_emu.sh \
+    EMU_HEADLESS=./start_emu_headless.sh \
+    VNC=./start_vnc.sh \
+    APPIUM=./start_appium.sh
+
+ENV START_EMU=false \
+    START_EMU_HEADLESS=false \
+    START_VNC=false \
+    START_APPIUM=false \
+    START_APPIUM_DELAY=60 \
+    LOG_LEVEL=info
 
 
 #===================
@@ -98,7 +105,20 @@ RUN chmod a+x start_vnc.sh && \
     chmod a+x start_appium.sh && \
     chmod a+x start_emu_headless.sh
 
+#=============================
+# Download default chromedriver
+#=============================
+ARG CHROME_DRIVER_URL="https://storage.googleapis.com/chrome-for-testing-public/124.0.6367.207/linux64/chromedriver-linux64.zip"
+RUN curl -sk ${CHROME_DRIVER_URL} -o /tmp/chromedriver.zip \
+  && unzip /tmp/chromedriver.zip -d /tmp \
+  && mv /tmp/chromedriver-linux64 /tmp/linux \
+  && rm -rf ~/.appium/node_modules/appium-uiautomator2-driver/node_modules/appium-chromedriver/chromedriver \
+  && mkdir -p ~/.appium/node_modules/appium-uiautomator2-driver/node_modules/appium-chromedriver/chromedriver \
+  && mv /tmp/linux ~/.appium/node_modules/appium-uiautomator2-driver/node_modules/appium-chromedriver/chromedriver \
+  && ~/.appium/node_modules/appium-uiautomator2-driver/node_modules/appium-chromedriver/chromedriver/linux/chromedriver --version \
+  && rm -rf /tmp/chromedriver.zip
+
 #=======================
 # framework entry point
 #=======================
-CMD [ "/bin/bash" ]
+CMD [ "/bin/bash", "-c", "./entry_point.sh" ]
